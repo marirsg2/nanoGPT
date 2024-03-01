@@ -30,7 +30,8 @@ class CausalSelfAttention(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        assert config.n_embd % config.n_head == 0
+        assert config.n_embd % config.n_head == 0 # TODO NOTE THIS !! the embedding includes the number of heads. Makes sense, 
+                    # the embedding of the sentence is all the softmax(query DOT key) * Value 
         # key, query, value projections for all heads, but in a batch
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
         # output projection
@@ -91,7 +92,8 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return x
 
-class Block(nn.Module):
+class Block(nn.Module): # This is the real unit/chunk of GPT layers/level, not the self attention module as the top block
+                        # block size is the # of token positions it can handle
 
     def __init__(self, config):
         super().__init__()
@@ -101,13 +103,13 @@ class Block(nn.Module):
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
+        x = x + self.attn(self.ln_1(x))y
         x = x + self.mlp(self.ln_2(x))
         return x
 
 @dataclass
 class GPTConfig:
-    block_size: int = 1024
+    block_size: int = 1024 # Block is the GPT block that is repeated. The size is max # tokens it can handle. used in wpe (word position embedding)
     vocab_size: int = 50304 # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
     n_layer: int = 12
     n_head: int = 12
@@ -178,7 +180,7 @@ class GPT(nn.Module):
         pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
         x = self.transformer.drop(tok_emb + pos_emb)
         for block in self.transformer.h:
-            x = block(x)
+            x = block(x) #THIS is where we would capture the data for the various layers, Tensors in middle layer, less entropy, ? (unsure) at different temperatures too ?
         x = self.transformer.ln_f(x)
 
         if targets is not None:
